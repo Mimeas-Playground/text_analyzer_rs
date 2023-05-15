@@ -20,7 +20,7 @@
       - [ ] `CreateNewFile`
       - [ ] `UiColors`
       - [ ] `ProgressBar`
-    - [ ] `MainManager`
+    - [-] `MainManager`
 
 - [ ] Analyze the architecture and make changes so the application can have multiple front-ends
   - [ ] Create a front-end for the terminal

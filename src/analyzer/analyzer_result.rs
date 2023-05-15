@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt::Display,
     ops::{Add, AddAssign},
     time::SystemTime,
 };
@@ -30,9 +31,10 @@ impl AnalyzerResult {
     }
 }
 
-impl From<&AnalyzerResult> for String {
-    fn from(value: &AnalyzerResult) -> Self {
-        String::from(format!(
+impl Display for AnalyzerResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
             "
             Source: {}
             Scan Time: {:?}
@@ -42,14 +44,14 @@ impl From<&AnalyzerResult> for String {
             Word Heat Map: {:?}
             Letter Heat Map: {:?}
             ",
-            value.source_name,
-            value.scan_time,
-            value.total_word_count,
-            value.total_letter_count,
-            value.longest_word,
-            value.word_heatmap,
-            value.letter_heatmap
-        ))
+            self.source_name,
+            self.scan_time,
+            self.total_word_count,
+            self.total_letter_count,
+            self.longest_word,
+            self.word_heatmap,
+            self.letter_heatmap
+        )
     }
 }
 

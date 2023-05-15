@@ -2,18 +2,18 @@ use super::AnalyzerResult;
 use std::{
     collections::vec_deque::VecDeque,
     fs::File,
-    io::{BufRead, BufReader},
+    io::{BufRead, BufReader, Read},
     sync::{Arc, Mutex},
 };
 
 pub struct AnalyzerThread {
     text: VecDeque<String>,
     word: String,
-    text_stream: Arc<Mutex<BufReader<File>>>,
+    text_stream: Arc<Mutex<File>>,
 }
 
 impl AnalyzerThread {
-    pub fn new(text_stream: Arc<Mutex<BufReader<File>>>) -> AnalyzerThread {
+    pub fn new(text_stream: Arc<Mutex<File>>) -> AnalyzerThread {
         Self {
             text: VecDeque::new(),
             word: String::new(),
@@ -22,10 +22,15 @@ impl AnalyzerThread {
     }
 
     pub fn analyze(mut self) -> AnalyzerResult {
-        let mut has_more = false;
+        println!(
+            "Analyze start - text_stream: {} len",
+            self.text_stream.lock().unwrap().
+        );
         let mut result = AnalyzerResult::new();
+        let mut has_more = self.get_next_word();
 
         while has_more {
+            println!("Has {} left before line", self.text.len());
             result.total_word_count += 1;
             result.total_letter_count += self.word.len();
 
@@ -49,21 +54,26 @@ impl AnalyzerThread {
     fn get_next_word(&mut self) -> bool {
         let mut has_more = false;
         if self.text.len() > 0 {
+            println!("I have {} more words in text", self.text.len());
             if let Some(word) = self.text.pop_front() {
                 self.word = word;
-                has_more = true;
+                return true;
+            } else {
+                panic!("Failed to get next word in own buffer");
             }
-        } else {
-            if let Ok(stream) = self.text_stream.lock() {
-                if stream.buffer().is_empty() {
-                    has_more = false
-                } else {
-                    let mut line = String::new();
-                    if let Ok(_) = stream.buffer().read_line(&mut line) {
-                        line.split(' ')
-                            .for_each(|w| self.text.push_back(w.to_string()));
-                        has_more = true
-                    }
+        }
+
+        if let Ok(stream) = self.text_stream.lock() {
+            println!("Aquiring more text");
+            if stream.buffer().is_empty() {
+                println!("Empty buffer");
+                has_more = false
+            } else {
+                let mut line = String::new();
+                if let Ok(_) = stream.buffer().read_line(&mut line) {
+                    line.split(' ')
+                        .for_each(|w| self.text.push_back(w.to_string()));
+                    has_more = true
                 }
             }
         }
