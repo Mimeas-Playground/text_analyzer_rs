@@ -15,7 +15,7 @@
       - [ ] `LogLevel`
       - [ ] `Logger`
     - [ ] `Ui`
-      - [ ] `Ui`
+      - [x] `Ui`
       - [ ] `IOManager`
       - [ ] `CreateNewFile`
       - [ ] `UiColors`
