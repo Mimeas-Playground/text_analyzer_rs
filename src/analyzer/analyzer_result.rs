@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fmt::Display,
     ops::{Add, AddAssign},
-    time::SystemTime,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 /// Structure for keeping track of the analyzed data
@@ -37,7 +37,7 @@ impl Display for AnalyzerResult {
             f,
             "
             Source: {}
-            Scan Time: {:?}
+            Scan Time: {}
             Total Word Count: {}
             Total Letter Count: {}
             Longest Word: {}
@@ -45,7 +45,10 @@ impl Display for AnalyzerResult {
             Letter Heat Map: {:?}
             ",
             self.source_name,
-            self.scan_time,
+            self.scan_time
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs_f32(),
             self.total_word_count,
             self.total_letter_count,
             self.longest_word,
