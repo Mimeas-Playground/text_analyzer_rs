@@ -1,19 +1,18 @@
 use super::AnalyzerResult;
 use std::{
     collections::vec_deque::VecDeque,
-    fs::File,
-    io::{BufRead, BufReader, Read},
+    io::Read,
     sync::{Arc, Mutex},
 };
 
-pub struct AnalyzerThread {
+pub struct AnalyzerThread<S: Read> {
     text: VecDeque<String>,
     word: String,
-    text_stream: Arc<Mutex<File>>,
+    text_stream: Arc<Mutex<S>>,
 }
 
-impl AnalyzerThread {
-    pub fn new(text_stream: Arc<Mutex<File>>) -> AnalyzerThread {
+impl<S: Read> AnalyzerThread<S> {
+    pub fn new(text_stream: Arc<Mutex<S>>) -> AnalyzerThread<S> {
         Self {
             text: VecDeque::new(),
             word: String::new(),
@@ -22,15 +21,10 @@ impl AnalyzerThread {
     }
 
     pub fn analyze(mut self) -> AnalyzerResult {
-        println!(
-            "Analyze start - text_stream: {} len",
-            self.text_stream.lock().unwrap().
-        );
         let mut result = AnalyzerResult::new();
         let mut has_more = self.get_next_word();
 
         while has_more {
-            println!("Has {} left before line", self.text.len());
             result.total_word_count += 1;
             result.total_letter_count += self.word.len();
 
@@ -54,7 +48,6 @@ impl AnalyzerThread {
     fn get_next_word(&mut self) -> bool {
         let mut has_more = false;
         if self.text.len() > 0 {
-            println!("I have {} more words in text", self.text.len());
             if let Some(word) = self.text.pop_front() {
                 self.word = word;
                 return true;
@@ -63,18 +56,57 @@ impl AnalyzerThread {
             }
         }
 
-        if let Ok(stream) = self.text_stream.lock() {
+        if let Ok(mut stream) = self.text_stream.lock() {
             println!("Aquiring more text");
-            if stream.buffer().is_empty() {
-                println!("Empty buffer");
-                has_more = false
-            } else {
-                let mut line = String::new();
-                if let Ok(_) = stream.buffer().read_line(&mut line) {
-                    line.split(' ')
-                        .for_each(|w| self.text.push_back(w.to_string()));
-                    has_more = true
+            let mut segment = Vec::with_capacity(1024);
+            let mut read;
+
+            match stream.read(segment.as_mut_slice()) {
+                Ok(bytes) => {
+                    if let Ok(txt) = String::from_utf8(segment) {
+                        read = bytes;
+                        txt.split(char::is_whitespace)
+                            .for_each(|w| self.text.push_back(w.to_string()));
+
+                        if !self.text.back().unwrap().ends_with(char::is_whitespace) {
+                            let mut bytes: Vec<u8> = Vec::new();
+                            let mut byte = [0];
+                            loop {
+                                match stream.read(&mut byte) {
+                                    Ok(b) => {
+                                        if b == 0 {
+                                            break;
+                                        }
+                                        bytes.extend_from_slice(&byte);
+                                        read += 1;
+                                        if let Ok(word) = std::str::from_utf8(bytes.as_slice()) {
+                                            if word.ends_with(char::is_whitespace) {
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        if e.kind() == std::io::ErrorKind::WouldBlock {
+                                            break;
+                                        } else {
+                                            panic!("Error reading from stream: {}", e);
+                                        }
+                                    }
+                                }
+                            }
+
+                            if let Ok(word) = std::str::from_utf8(bytes.as_slice()) {
+                                self.text.back_mut().unwrap().push_str(word);
+                            }
+                        }
+
+                        if read > 0 {
+                            has_more = true;
+                        }
+                    }
                 }
+
+                _ => {}
             }
         }
 
