@@ -6,6 +6,7 @@ use std::{
 };
 
 pub struct AnalyzerThread<S: Read> {
+    thread_block_size: usize,
     text: VecDeque<String>,
     word: String,
     text_stream: Arc<Mutex<S>>,
@@ -14,10 +15,17 @@ pub struct AnalyzerThread<S: Read> {
 impl<S: Read> AnalyzerThread<S> {
     pub fn new(text_stream: Arc<Mutex<S>>) -> AnalyzerThread<S> {
         Self {
+            thread_block_size: 1024,
             text: VecDeque::new(),
             word: String::new(),
             text_stream,
         }
+    }
+
+    pub fn with_block_size(block_size: usize, text_stream: Arc<Mutex<S>>) -> Self {
+        let mut thread = Self::new(text_stream);
+        thread.thread_block_size = block_size;
+        thread
     }
 
     pub fn analyze(mut self) -> AnalyzerResult {
@@ -47,6 +55,8 @@ impl<S: Read> AnalyzerThread<S> {
 
     fn get_next_word(&mut self) -> bool {
         let mut has_more = false;
+
+        // If we have a word in our buffer, use it
         if self.text.len() > 0 {
             if let Some(word) = self.text.pop_front() {
                 self.word = word;
@@ -56,18 +66,20 @@ impl<S: Read> AnalyzerThread<S> {
             }
         }
 
+        // Otherwise, fill our buffer with more from the stream
         if let Ok(mut stream) = self.text_stream.lock() {
-            println!("Aquiring more text");
-            let mut segment = Vec::with_capacity(1024);
+            let mut segment = vec![0; self.thread_block_size];
             let mut read;
 
-            match stream.read(segment.as_mut_slice()) {
+            match stream.read(&mut segment) {
                 Ok(bytes) => {
                     if let Ok(txt) = String::from_utf8(segment) {
                         read = bytes;
                         txt.split(char::is_whitespace)
                             .for_each(|w| self.text.push_back(w.to_string()));
 
+                        // A word that ends without a space may not be complete, therefore we
+                        // continue to read until a whitespace is found or the stream is empty
                         if !self.text.back().unwrap().ends_with(char::is_whitespace) {
                             let mut bytes: Vec<u8> = Vec::new();
                             let mut byte = [0];
@@ -79,6 +91,9 @@ impl<S: Read> AnalyzerThread<S> {
                                         }
                                         bytes.extend_from_slice(&byte);
                                         read += 1;
+
+                                        // If this fails to interpret as utf8 then the character is
+                                        // not complete yet
                                         if let Ok(word) = std::str::from_utf8(bytes.as_slice()) {
                                             if word.ends_with(char::is_whitespace) {
                                                 break;
@@ -86,9 +101,13 @@ impl<S: Read> AnalyzerThread<S> {
                                         }
                                     }
                                     Err(e) => {
-                                        if e.kind() == std::io::ErrorKind::WouldBlock {
+                                        // Reached end of stream
+                                        if e.kind() == std::io::ErrorKind::WouldBlock
+                                            || e.kind() == std::io::ErrorKind::UnexpectedEof
+                                        {
                                             break;
                                         } else {
+                                            // An actual error
                                             panic!("Error reading from stream: {}", e);
                                         }
                                     }
@@ -110,6 +129,6 @@ impl<S: Read> AnalyzerThread<S> {
             }
         }
 
-        return has_more;
+        has_more
     }
 }

@@ -17,7 +17,7 @@ fn main() {
 
         println!("File: {:?}", file);
 
-        let result = AnalyzerManager::new(3, file).analyze();
+        let result = AnalyzerManager::new(3, 1024, file).analyze();
         println!("Result:\n{}", result);
     } else {
         println!("Usage: {} <file>", std::env::args().nth(0).unwrap());
