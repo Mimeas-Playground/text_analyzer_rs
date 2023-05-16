@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use std::{fs::OpenOptions, path::PathBuf};
-use text_analyzer::analyzer::AnalyzerManager;
+use text_analyzer::analyzer::{AnalyzerManager, AnalyzerResult};
 
 mod ui;
 
@@ -40,6 +40,9 @@ fn main() {
     }
 
     if arg_valid {
+        let mut result = AnalyzerResult::new();
+        result.source_name = path.to_str().unwrap().to_string();
+
         println!("Opening: {:?}", path);
         let file = OpenOptions::new()
             .read(true)
@@ -51,8 +54,8 @@ fn main() {
         if thread_num == 0 {
             thread_num = std::thread::available_parallelism().unwrap().get()
         }
-        let result = AnalyzerManager::new(thread_num, block_size, file).analyze();
-        println!("Result:\n{}", result);
+        result += AnalyzerManager::new(thread_num, block_size, file).analyze();
+        println!("{result}");
     } else {
         println!(
             "Usage: {} <file> [options]",

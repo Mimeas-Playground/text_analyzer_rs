@@ -1,9 +1,11 @@
 use std::{
     collections::HashMap,
     fmt::Display,
-    ops::{Add, AddAssign},
+    ops::AddAssign,
     time::{SystemTime, UNIX_EPOCH},
 };
+
+use itertools::Itertools;
 
 /// Structure for keeping track of the analyzed data
 pub struct AnalyzerResult {
@@ -33,29 +35,58 @@ impl AnalyzerResult {
 
 impl Display for AnalyzerResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let top_words: String = self
+            .word_heatmap
+            .iter()
+            .sorted_by(|a, b| b.1.cmp(a.1))
+            .take(5)
+            .map(|(w, n)| format!("\t{w}: {}\n", int_separate(n)))
+            .collect();
+
+        let top_letters: String = self
+            .letter_heatmap
+            .iter()
+            .sorted_by(|a, b| b.1.cmp(a.1))
+            .take(5)
+            .map(|(l, n)| format!("\t{l}: {}\n", int_separate(n)))
+            .collect();
+
         write!(
             f,
-            "
-            Source: {}
-            Scan Time: {}
-            Total Word Count: {}
-            Total Letter Count: {}
-            Longest Word: {}
-            Word Heat Map: {:?}
-            Letter Heat Map: {:?}
-            ",
+            "\
+Source: {}
+Scan Time: {}
+Total Word Count: {}
+Total Letter Count: {}
+Longest Word: {}
+5 most used words: \n{}
+5 most used letters: \n{}",
             self.source_name,
             self.scan_time
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs_f32(),
-            self.total_word_count,
-            self.total_letter_count,
+            int_separate(&self.total_word_count),
+            int_separate(&self.total_letter_count),
             self.longest_word,
-            self.word_heatmap,
-            self.letter_heatmap
+            top_words,
+            top_letters
         )
     }
+}
+
+fn int_separate<N: num::PrimInt + Display>(n: &N) -> String {
+    n.to_string()
+        .chars()
+        .rev()
+        .chunks(3)
+        .into_iter()
+        .map(|chunk| chunk.collect::<String>())
+        .collect::<Vec<String>>()
+        .join(",")
+        .chars()
+        .rev()
+        .collect()
 }
 
 impl AddAssign for AnalyzerResult {
@@ -82,53 +113,5 @@ impl AddAssign for AnalyzerResult {
                 self.letter_heatmap.insert(*key, existing + val);
             }
         });
-    }
-}
-
-impl Add for AnalyzerResult {
-    type Output = Self;
-    fn add(self, rhs: Self) -> Self::Output {
-        let mut output = AnalyzerResult::new();
-        output.source_name = self.source_name;
-        output.scan_time = if self.scan_time > rhs.scan_time {
-            self.scan_time
-        } else {
-            rhs.scan_time
-        };
-
-        output.total_word_count = self.total_word_count + rhs.total_word_count;
-        output.total_letter_count = self.total_letter_count + rhs.total_letter_count;
-
-        output.longest_word = if self.longest_word.len() > rhs.longest_word.len() {
-            self.longest_word
-        } else {
-            rhs.longest_word
-        };
-
-        output.word_heatmap = self.word_heatmap.clone();
-        for (key, value) in rhs.word_heatmap {
-            match self.word_heatmap.get(&key) {
-                Some(pre) => {
-                    output.word_heatmap.insert(key, *pre + value);
-                }
-                None => {
-                    output.word_heatmap.insert(key, value);
-                }
-            }
-        }
-
-        output.letter_heatmap = self.letter_heatmap.clone();
-        for (key, value) in rhs.letter_heatmap {
-            match self.letter_heatmap.get(&key) {
-                Some(pre) => {
-                    output.letter_heatmap.insert(key, *pre + value);
-                }
-                None => {
-                    output.letter_heatmap.insert(key, value);
-                }
-            }
-        }
-
-        output
     }
 }

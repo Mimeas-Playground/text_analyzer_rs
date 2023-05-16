@@ -32,13 +32,11 @@ impl AnalyzerManager {
         thread::scope(|s| {
             let mut threads = Vec::new();
 
-            for i in 0..self.thread_count {
+            for _ in 0..self.thread_count {
                 let thr = AnalyzerThread::with_block_size(
                     self.thread_block_size,
                     self.text_stream.clone(),
                 );
-                println!("Creating worker thread: {i}");
-
                 threads.push(s.spawn(|| thr.analyze()));
             }
 
@@ -58,6 +56,7 @@ impl AnalyzerManager {
 
                     thread::sleep(std::time::Duration::from_millis(100));
                 }
+                print!("\r                             \r"); // Clear the progress line
             });
 
             for join in threads {
