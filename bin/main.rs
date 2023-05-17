@@ -57,11 +57,13 @@ fn main() {
         result += AnalyzerManager::new(thread_num, block_size, file).analyze();
         println!("{result}");
     } else {
-        println!(
-            "Usage: {} <file> [options]",
-            std::env::args().nth(0).unwrap()
+        print!(
+            "\
+Usage {} <file> [options]
+    -t <num>    Number of threads to use
+    -b <num>    How many bytes each thread will try to process at a time
+",
+            std::env!("CARGO_BIN_NAME")
         );
-        println!("\t -t <num>\t Number of threads to use");
-        println!("\t -b <num>\t How many bytes each thread will try to process at a time");
     }
 }

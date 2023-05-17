@@ -19,7 +19,7 @@
       - [ ] `IOManager`
       - [ ] `CreateNewFile`
       - [ ] `UiColors`
-      - [ ] `ProgressBar`
+      - [x] `ProgressBar`
     - [-] `MainManager`
 
 - [ ] Analyze the architecture and make changes so the application can have multiple front-ends
