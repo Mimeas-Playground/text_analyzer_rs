@@ -12,3 +12,4 @@ path = "bin/main.rs"
 [dependencies]
 itertools = "0.10"
 num = "0.4"
+clap = { version = "4.0", features = ["derive"] }

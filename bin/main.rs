@@ -1,69 +1,39 @@
-use itertools::Itertools;
-use std::{fs::OpenOptions, path::PathBuf};
+use clap::Parser;
+
+use std::{fs::OpenOptions, thread::available_parallelism};
 use text_analyzer::analyzer::{AnalyzerManager, AnalyzerResult};
 
 mod ui;
 
+#[derive(Parser)]
+#[command(version, long_about=None)]
+struct Args {
+    /// Path to file
+    path: String,
+    /// Number of threads to use, uses all available threads by default
+    #[arg(short)]
+    thread_count: Option<usize>,
+    /// How many bytes each thread will try to process at a time
+    #[arg(short, default_value_t = 1024)]
+    block_size: usize,
+}
+
 fn main() {
-    let mut thread_num = 0;
-    let mut block_size = 1024;
-    let mut path = PathBuf::new();
-    let mut arg_valid = false;
+    let args = Args::parse();
+    println!("Opening: {:?}", &args.path);
+    let file = OpenOptions::new()
+        .read(true)
+        .open(&args.path)
+        .expect("Failed to open file");
 
-    let mut args = std::env::args().skip(1);
-
-    if let Some(file) = args.next() {
-        path.push(file);
-        arg_valid = path.is_file();
-    }
-
-    if args.len() > 0 {
-        for (a, b) in std::env::args().tuple_windows() {
-            if arg_valid == false {
-                break;
-            }
-
-            if a == "-t" {
-                if let Ok(num) = b.parse() {
-                    thread_num = num;
-                } else {
-                    arg_valid = false;
-                }
-            } else if a == "-b" {
-                if let Ok(num) = b.parse() {
-                    block_size = num;
-                } else {
-                    arg_valid = false;
-                }
-            }
-        }
-    }
-
-    if arg_valid {
-        let mut result = AnalyzerResult::new();
-        result.source_name = path.to_str().unwrap().to_string();
-
-        println!("Opening: {:?}", path);
-        let file = OpenOptions::new()
-            .read(true)
-            .open(path)
-            .expect("Failed to open file");
-
-        println!("File: {:?}", file);
-
-        if thread_num == 0 {
-            thread_num = std::thread::available_parallelism().unwrap().get()
-        }
-        result += AnalyzerManager::new(thread_num, block_size, file).analyze();
-        println!("{result}");
-    } else {
-        print!(
-            "\
-Usage {} <file> [options]
-    -t <num>    Number of threads to use
-    -b <num>    How many bytes each thread will try to process at a time
-",
-            std::env!("CARGO_BIN_NAME")
-        );
-    }
+    let mut result = AnalyzerResult::new();
+    result.source_name = args.path;
+    result += AnalyzerManager::new(
+        args.thread_count
+            .unwrap_or_else(|| available_parallelism().unwrap().get()),
+        args.block_size,
+        file,
+    )
+    .analyze();
+    println!("{result}");
 }
