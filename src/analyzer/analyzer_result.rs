@@ -31,6 +31,36 @@ impl AnalyzerResult {
             letter_heatmap: HashMap::new(),
         }
     }
+
+    pub fn analyze<I>(&mut self, buffer: I)
+    where
+        I: Iterator<Item = String>,
+    {
+        for word in buffer {
+            self.total_word_count += 1;
+            self.total_letter_count += word.len();
+
+            if word.chars().all(|l| l.is_alphabetic()) {
+                if let Some(val) = self.word_heatmap.insert(word.clone(), 1) {
+                    self.word_heatmap.insert(word.clone(), val + 1);
+                }
+            }
+
+            for l in word.chars() {
+                if l.is_alphabetic() {
+                    if let Some(val) = self.letter_heatmap.insert(l, 1) {
+                        self.letter_heatmap.insert(l, val + 1);
+                    }
+                }
+            }
+
+            if self.longest_word.len() < word.len() {
+                self.longest_word = word;
+            }
+        }
+
+        self.scan_time = SystemTime::now();
+    }
 }
 
 impl Display for AnalyzerResult {
